@@ -13,26 +13,42 @@ enum SortOption {
     case manual
 }
 
-final class ImageService {
+protocol ImageServiceProtocol {
+    func addRandomImage() async throws -> ImageItem?
+    func loadAllImages() async throws -> [ImageItem]
+    func delete(uuid: UUID) async throws
+    func update(imageOrdering: ImageOrdering) async throws
+}
+
+final class ImageService: ImageServiceProtocol {
     private let imageListAPI: ImageListAPIProtocol
     private let imageDownloader: ImageDownloaderProtocol
     private let persistence: ImagePersistenceProtocol
+    private let urlString: String
+    private let page: Int
+    private let itemsPerPage: Int
+    private let urlSession: URLSession
     
     init(imageListAPI: ImageListAPIProtocol = ImageListAPI(),
          imageDownloader: ImageDownloaderProtocol = ImageDownloader(),
-         persistence: ImagePersistenceProtocol = ImagePersistence()) {
+         persistence: ImagePersistenceProtocol = ImagePersistence(),
+         urlString: String = "https://picsum.photos/v2/list",
+         page: Int = 1,
+         itemsPerPage: Int = 30,
+         with urlSession: URLSession = URLSession.shared) {
         self.imageListAPI = imageListAPI
         self.imageDownloader = imageDownloader
         self.persistence = persistence
+        self.urlString = urlString
+        self.page = page
+        self.itemsPerPage = itemsPerPage
+        self.urlSession = urlSession
     }
     
-    func addRandomImage(from path: String = "https://picsum.photos/v2/list",
-                        page: Int = 1,
-                        itemsPerPage: Int = 30,
-                        urlSession: URLSession = URLSession.shared) async throws -> ImageItem? {
+    func addRandomImage() async throws -> ImageItem? {
 
         try Task.checkCancellation()
-        let list = try await imageListAPI.fetchList(page: page, limit: itemsPerPage, urlString: path, urlSession: urlSession)
+        let list = try await imageListAPI.fetchList(page: page, limit: itemsPerPage, urlString: urlString, urlSession: urlSession)
 
         try Task.checkCancellation()
         guard !list.isEmpty,
@@ -53,35 +69,14 @@ final class ImageService {
     }
     
     func loadAllImages() async throws -> [ImageItem] {
-        try await persistence.fetchAll(sortedByOrder: true)
+        try await persistence.fetchAll()
     }
     
     func delete(uuid: UUID) async throws {
         try await persistence.delete(imageUUID: uuid)
     }
     
-    func update(images: [ImageItem], sortOption: SortOption, ascending: Bool) async throws -> [ImageItem] {
-        var newSortedImages: [ImageItem]
-        let date = Date()
-        switch sortOption {
-        case .author:
-            newSortedImages = ascending ? images.sorted { ($0.author ?? "" < $1.author ?? "") && ($0.uuid < $1.uuid) } : images.sorted { ($0.author ?? "" > $1.author ?? "") && ($0.uuid > $1.uuid) }
-        case .downloadedAt:
-            newSortedImages = ascending ? images.sorted { ($0.downloadedAt ?? date < $1.downloadedAt ?? date) && ($0.uuid < $1.uuid) } : images.sorted { ($0.downloadedAt ?? date > $1.downloadedAt ?? date) && ($0.uuid > $1.uuid) }
-        case .manual:
-            return images
-        }
-        
-        var imageOrdering: ImageOrdering = [:]
-        for i in 0..<newSortedImages.count {
-            if newSortedImages[i].order != i {
-                imageOrdering[newSortedImages[i].uuid.uuidString] = i
-                newSortedImages[i].order = i
-            }
-        }
-        
+    func update(imageOrdering: ImageOrdering) async throws {
         try await persistence.updateOrder(imageOrdering)
-
-        return newSortedImages
     }
 }

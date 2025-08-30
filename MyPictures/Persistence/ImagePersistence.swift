@@ -25,12 +25,13 @@ struct ImageItem {
         downloadedAt = savedImage.downloadedAt
     }
     
-    func loadImageData() throws -> Data? {
-        try Data(contentsOf: URL(fileURLWithPath: filePath))
+    func loadImageData(fileManager: FileManager = .default) throws -> Data? {
+        let url = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filePath)
+        return try Data(contentsOf: url)
     }
 }
 
-typealias ImageOrdering = [String: Int]
+typealias ImageOrdering = [UUID: Int32]
 
 protocol ImagePersistenceProtocol {
     @discardableResult
@@ -44,7 +45,7 @@ protocol ImagePersistenceProtocol {
     
     func delete(imageUUID: UUID) async throws
     
-    func fetchAll(sortedByOrder: Bool) async throws -> [ImageItem]
+    func fetchAll() async throws -> [ImageItem]
     
     func updateOrder(_ ordering: ImageOrdering) async throws
 }
@@ -53,6 +54,8 @@ class ImagePersistence: ImagePersistenceProtocol {
     private let container: NSPersistentContainer
     private var backgroundContext: NSManagedObjectContext
     private let fileDirectory: URL
+    private let imagesDirectory = "images"
+    private let fileManager: FileManager
 
     init(model: String = "MyPictures",
          fileManager: FileManager = FileManager.default) {
@@ -72,8 +75,9 @@ class ImagePersistence: ImagePersistenceProtocol {
         backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         
         // FileManager
+        self.fileManager = fileManager
         let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        fileDirectory = baseDir.appendingPathComponent("images", isDirectory: true)
+        fileDirectory = baseDir.appendingPathComponent(imagesDirectory, isDirectory: true)
         try? fileManager.createDirectory(at: fileDirectory, withIntermediateDirectories: true)
     }
     
@@ -93,7 +97,7 @@ class ImagePersistence: ImagePersistenceProtocol {
         try imageData.write(to: fileURL)
         
         return try await backgroundContext.perform {
-            let request = NSFetchRequest<SavedImage>(entityName: "SavedImage")
+            let request: NSFetchRequest<SavedImage> = SavedImage.fetchRequest()
                 request.sortDescriptors = [NSSortDescriptor(key: "order", ascending: false)]
             let order = try self.backgroundContext.fetch(request).first?.order ?? 0
             
@@ -105,8 +109,9 @@ class ImagePersistence: ImagePersistenceProtocol {
             newImage.imageURL = imageURL
             newImage.downloadedAt = downloadedAt
             newImage.downloadDuration = downloadDuration
-            newImage.localFilePath = fileURL.path
-            newImage.order = Int32(order)
+            newImage.downloadDuration = downloadDuration
+            newImage.localFilePath = "\(self.imagesDirectory)/\(imageUUID.uuidString)"
+            newImage.order = Int32(order+1)
             
             try self.backgroundContext.save()
             
@@ -117,7 +122,7 @@ class ImagePersistence: ImagePersistenceProtocol {
     func delete(imageUUID: UUID) async throws {
         // CoreData
         try await backgroundContext.perform {
-            let request = NSFetchRequest<SavedImage>(entityName: "SavedImage")
+            let request: NSFetchRequest<SavedImage> = SavedImage.fetchRequest()
             request.predicate = NSPredicate(format: "uuid == %@", imageUUID as CVarArg)
             if let object = try self.backgroundContext.fetch(request).first {
                 self.backgroundContext.delete(object)
@@ -126,16 +131,14 @@ class ImagePersistence: ImagePersistenceProtocol {
         }
         
         // FileManager
-        let url = fileDirectory.absoluteString.appending("/\(imageUUID.uuidString)")
-        try FileManager.default.removeItem(atPath: url)
+        let url = fileDirectory.appendingPathComponent(imageUUID.uuidString)
+        try fileManager.removeItem(at: url)
     }
     
-    func fetchAll(sortedByOrder: Bool) async throws -> [ImageItem] {
+    func fetchAll() async throws -> [ImageItem] {
         try await container.viewContext.perform {
-            let request = NSFetchRequest<SavedImage>(entityName: "SavedImage")
-            if sortedByOrder {
-                request.sortDescriptors = [NSSortDescriptor(key: "order", ascending: true)]
-            }
+            let request: NSFetchRequest<SavedImage> = SavedImage.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "order", ascending: true)]
             let objects = try self.backgroundContext.fetch(request)
             return objects.map { .init(from: $0) }
         }
@@ -145,13 +148,12 @@ class ImagePersistence: ImagePersistenceProtocol {
         guard !ordering.isEmpty else { return }
         
         try await backgroundContext.perform {
-            let request = NSFetchRequest<SavedImage>(entityName: "SavedImage")
-            let uuids = ordering.keys.map { $0 as CVarArg }
-            request.predicate = NSPredicate(format: "uuid IN %@", uuids)
+            let request: NSFetchRequest<SavedImage> = SavedImage.fetchRequest()
+            request.predicate = NSPredicate(format: "uuid IN %@", Array(ordering.keys))
             let objects = try self.backgroundContext.fetch(request)
             
             for object in objects {
-                if let uuid = object.uuid?.uuidString {
+                if let uuid = object.uuid {
                     object.order = Int32(ordering[uuid] ?? 0)
                 }
             }
