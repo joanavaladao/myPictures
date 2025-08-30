@@ -18,7 +18,7 @@ final class MainViewModel {
         
         init(from item: ImageItem) {
             uuid = item.uuid
-            author = item.author ?? "Unknown Author"
+            author = item.author ?? String(localized: "Unknown Author")
             order = item.order
             downloadedAt = item.downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
             isLoading = false
@@ -44,13 +44,19 @@ final class MainViewModel {
             self.downloadedAt = downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
             self.isLoading = isLoading
         }
+        
+        func dateString() -> String {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MMM-dd-yyyy HH:mm"
+            return dateFormatter.string(from: downloadedAt)
+        }
     }
     
     enum DataState {
         case empty
         case refresh([ImageInfo])
-        case failed(Error)
-    }    
+        case failed(String)
+    }
     
     private let service: ImageServiceProtocol
     private var items: [ImageInfo] = []
@@ -69,7 +75,8 @@ final class MainViewModel {
                 items = savedImages.map { .init(from: $0) }
                 await emitState()
             } catch {
-                onChange?(.failed(error))
+                logError(error: error)
+                await presentError(String(localized: "Error loading images. Please, try again"))
             }
         }
     }
@@ -95,7 +102,12 @@ final class MainViewModel {
                     await emitState()
                 }
             } catch {
-                onChange?(.failed(error))
+                logError(error: error)
+                await presentError(String(localized: "Error adding new image. Please, try again"))
+                if let index = items.firstIndex(of: placeholder) {
+                    items.remove(at: index)
+                    await emitState()
+                }
             }
         }
     }
@@ -109,7 +121,8 @@ final class MainViewModel {
                 items.remove(at: index)
                 await emitState()
             } catch {
-                onChange?(.failed(error))
+                logError(error: error)
+                await presentError(String(localized: "Error deleting the image. Please, try again"))
             }
         }
     }
@@ -125,7 +138,13 @@ final class MainViewModel {
         sortImages()
     }
     
-    private func sortImages() {
+    func getImageCount() -> Int {
+        items.count
+    }
+}
+    
+private extension MainViewModel {
+    func sortImages() {
         switch sortSelected {
         case .author:
             items.sort {
@@ -175,22 +194,27 @@ final class MainViewModel {
         }
 
         Task {
-            
             await emitState()
-            
             do {
                 try await service.update(imageOrdering: imageOrdering)
             } catch {
-                // log error
+                logError(error: error)
             }
             
         }
     }
-}
     
-private extension MainViewModel {
     @MainActor
     func emitState() {
         onChange?(items.isEmpty ? .empty : .refresh(items))
+    }
+    
+    @MainActor
+    func presentError(_ message: String) {
+        onChange?(.failed(message))
+    }
+    
+    func logError(error: Error) {
+        print("Error: \(error)")
     }
 }

@@ -46,7 +46,7 @@ class MainViewController: UIViewController {
 
 private extension MainViewController {
     func setUpNavigationBar() {
-        title = "My Photos"
+        title = String(localized: "My Photos")
         
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
@@ -70,31 +70,31 @@ private extension MainViewController {
         navigationBar?.isTranslucent = false
         
         // Add Image Button
-        let rightButton = UIBarButtonItem(title: "Add", style: .plain, target: self, action: #selector(addNewImage))
+        let rightButton = UIBarButtonItem(title: String(localized: "Add"), style: .plain, target: self, action: #selector(addNewImage))
         navigationItem.rightBarButtonItem = rightButton
         
         // Sort Button
-        let manual = UIAction(title: "Manual", state: viewModel.checkIfSelected(sortOption: .manual, isAscending: false) ? .on : .off) { [weak self] _ in
+        let manual = UIAction(title: String(localized: "Manual"), state: viewModel.checkIfSelected(sortOption: .manual, isAscending: false) ? .on : .off) { [weak self] _ in
             self?.viewModel.setSortOption(.manual, isAscending: false)
         }
         
-        let authorAsc = UIAction(title: "Author A-Z", state: viewModel.checkIfSelected(sortOption: .author, isAscending: true) ? .on : .off) { [weak self] _ in
+        let authorAsc = UIAction(title: String(localized: "Author A-Z"), state: viewModel.checkIfSelected(sortOption: .author, isAscending: true) ? .on : .off) { [weak self] _ in
             self?.viewModel.setSortOption(.author, isAscending: true)
         }
         
-        let authorDesc = UIAction(title: "Author Z-A", state: viewModel.checkIfSelected(sortOption: .author, isAscending: false) ? .on : .off) { [weak self] _ in
+        let authorDesc = UIAction(title: String(localized: "Author Z-A"), state: viewModel.checkIfSelected(sortOption: .author, isAscending: false) ? .on : .off) { [weak self] _ in
             self?.viewModel.setSortOption(.author, isAscending: false)
         }
         
-        let downloadedAtAsc = UIAction(title: "Date Added A-Z", state: viewModel.checkIfSelected(sortOption: .downloadedAt, isAscending: true) ? .on : .off) { [weak self] _ in
+        let downloadedAtAsc = UIAction(title: String(localized: "Date Added A-Z"), state: viewModel.checkIfSelected(sortOption: .downloadedAt, isAscending: true) ? .on : .off) { [weak self] _ in
             self?.viewModel.setSortOption(.downloadedAt, isAscending: true)
         }
         
-        let downloadedAtDesc = UIAction(title: "Date Added Z-A", state: viewModel.checkIfSelected(sortOption: .downloadedAt, isAscending: false) ? .on : .off) { [weak self] _ in
+        let downloadedAtDesc = UIAction(title: String(localized: "Date Added Z-A"), state: viewModel.checkIfSelected(sortOption: .downloadedAt, isAscending: false) ? .on : .off) { [weak self] _ in
             self?.viewModel.setSortOption(.downloadedAt, isAscending: false)
         }
 
-        let menu = UIMenu(title: "Sort by",
+        let menu = UIMenu(title: String(localized: "Sort by"),
                           options: [.singleSelection],
                           children: [manual, authorAsc, authorDesc, downloadedAtAsc, downloadedAtDesc])
 
@@ -112,6 +112,7 @@ private extension MainViewController {
         layout.minimumLineSpacing = 8
         layout.sectionInset = .init(top: 8, left: 8, bottom: 8, right: 8)
         layout.estimatedItemSize = .zero
+        layout.sectionHeadersPinToVisibleBounds = true
         
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .systemBackground
@@ -132,6 +133,7 @@ private extension MainViewController {
         collectionView.alwaysBounceVertical = true
         
         configureDataSource()
+        configureSubtitle()
     }
     
     func configureDataSource() {
@@ -144,6 +146,26 @@ private extension MainViewController {
         }
     }
     
+    func configureSubtitle() {
+        collectionView.register(CollectionHeaderView.self,
+                                forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+                                withReuseIdentifier: CollectionHeaderView.reuseIdentifier)
+        
+        dataSource.supplementaryViewProvider = { [weak self] collectionView, kind, indexPath in
+            guard let self = self,
+                  kind == UICollectionView.elementKindSectionHeader else {
+                return nil
+            }
+            
+            let headerView = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: CollectionHeaderView.reuseIdentifier, for: indexPath) as! CollectionHeaderView
+            headerView.contentMode = .scaleToFill
+            headerView.backgroundColor = .systemBackground
+            headerView.setLabel(value: String(localized: "\(viewModel.getImageCount()) photos"))
+            
+            return headerView
+        }
+    }
+    
     func makeEmptyView() -> UIView {
         let emptyView = UIView()
         let imageView = UIImageView(image: UIImage(systemName: "photo.on.rectangle.fill"))
@@ -152,7 +174,7 @@ private extension MainViewController {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         
         let label = UILabel()
-        label.text = "No images found"
+        label.text = String(localized: "No images found")
         label.font = .preferredFont(forTextStyle: .headline)
         label.textAlignment = .center
         
@@ -179,8 +201,24 @@ private extension MainViewController {
             switch state {
             case .refresh(let snapshot):
                 self?.apply(items: snapshot)
-            default:
-                print("default")
+            case .empty:
+                self?.apply(items: [])
+            case .failed(let message):
+                let alertVC = UIAlertController(title: String(localized: "Error"),
+                                                message: message,
+                                                preferredStyle: .alert)
+                alertVC.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
+                self?.present(alertVC, animated: true)
+                
+                
+//                let modal = ModalViewController(content: ModalContent(modalTitle: , subtitle1: message))
+//                if let sheet = modal.sheetPresentationController {
+//                    sheet.detents = [.medium(), .large()]
+//                    sheet.prefersGrabberVisible = true
+//                    sheet.prefersEdgeAttachedInCompactHeight = true
+//                    sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+//                }
+//                self?.present(modal, animated: true)
             }
         }
     }
@@ -190,7 +228,12 @@ private extension MainViewController {
         snapshot.appendSections([.main])
         snapshot.appendItems(items)
 
-        dataSource.apply(snapshot, animatingDifferences: animated)
+        dataSource.apply(snapshot, animatingDifferences: animated) { [ weak self] in
+            if let photosCount = self?.viewModel.getImageCount(),
+               let header = self?.collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: 0)) as? CollectionHeaderView {
+                header.setLabel(value: String(localized: "\(photosCount) photos"))
+            }
+        }
         collectionView.backgroundView?.isHidden = !items.isEmpty
     }
 }
@@ -207,13 +250,29 @@ extension MainViewController: UICollectionViewDelegate {
         }
         
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
-            let delete = UIAction(title: "Delete",
+            let delete = UIAction(title: String(localized: "Delete"),
                                   image: UIImage(systemName: "trash"),
                                   attributes: .destructive) { _ in
                 self?.viewModel.delete(uuid: item.uuid)
             }
             return UIMenu(children: [delete])
         }
+    }
+    
+    @MainActor
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else {
+            return
+        }
+        let modal = ModalViewController(content: ModalContent(image: selectedItem.image, subtitle1: selectedItem.author, subtitle2: String(localized: "Downloaded at: \(selectedItem.dateString())")))
+        if let sheet = modal.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+        }
+        present(modal, animated: true)
+        collectionView.deselectItem(at: indexPath, animated: true)
     }
 }
 
@@ -231,5 +290,10 @@ extension MainViewController: UICollectionViewDelegateFlowLayout {
         let labelHeight: CGFloat = ceil(font.lineHeight)
         
         return CGSize(width: width, height: imageHeight + labelHeight + 8)
+    }
+    
+    @MainActor
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
+        .init(width: collectionView.bounds.width, height: 28)
     }
 }
