@@ -9,16 +9,28 @@ import UIKit
 
 class MainViewController: UIViewController {
     
+    // MARK: enum Section
     enum Section {
         case main
     }
 
+    // MARK: UI components
     private let layout = UICollectionViewFlowLayout()
     private lazy var collectionView: UICollectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
     private var dataSource: UICollectionViewDiffableDataSource<Section, MainViewModel.ImageInfo>! // TODO: change this
     private lazy var noImagesView: UIView = makeEmptyView()
     private var viewModel: MainViewModel
     
+    // Toolbar buttons
+    private lazy var addPhotoButton = UIBarButtonItem(title: String(localized: "Add"), style: .plain, target: self, action: #selector(addNewImage))
+    private lazy var selectButton = UIBarButtonItem(title: String(localized: "Select"), style: .plain, target: self, action: #selector(enterSelectionMode))
+    private lazy var cancelButton  = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancelSelectionMode))
+    private lazy var deleteButton  = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(deleteSelectedPhotos))
+    private lazy var selectAllButton = UIBarButtonItem(title: String(localized: "Select All"), style: .plain, target: self, action: #selector(selectAllPhotos))
+    private lazy var deselectAllButton = UIBarButtonItem(title: String(localized: "Deselect All"), style: .plain, target: self, action: #selector(deselectAllPhotos))
+    
+
+    // MARK: Initializers
     init(viewModel: MainViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -28,6 +40,7 @@ class MainViewController: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // MARK: Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -45,6 +58,7 @@ class MainViewController: UIViewController {
 }
 
 private extension MainViewController {
+    // MARK: Setup Navigation Bar
     func setUpNavigationBar() {
         title = String(localized: "My Photos")
         
@@ -69,10 +83,17 @@ private extension MainViewController {
         navigationBar?.barStyle = .black
         navigationBar?.isTranslucent = false
         
+        setUpNavigationBarRightMenu()
+        setUpNavigationBarLeftMenu()
+        setUpBottomBar()
+    }
+    
+    func setUpNavigationBarRightMenu() {
         // Add Image Button
-        let rightButton = UIBarButtonItem(title: String(localized: "Add"), style: .plain, target: self, action: #selector(addNewImage))
-        navigationItem.rightBarButtonItem = rightButton
-        
+        navigationItem.rightBarButtonItems = [addPhotoButton, selectButton]
+    }
+    
+    func setUpNavigationBarLeftMenu() {
         // Sort Button
         let manual = UIAction(title: String(localized: "Manual"), state: viewModel.checkIfSelected(sortOption: .manual, isAscending: false) ? .on : .off) { [weak self] _ in
             self?.viewModel.setSortOption(.manual, isAscending: false)
@@ -103,9 +124,19 @@ private extension MainViewController {
         navigationItem.leftBarButtonItem = sortMenu
     }
     
-    @objc private func addNewImage() {
-        viewModel.addNewImageWithSpinner()
+    @MainActor
+    func setUpBottomBar() {
+        deleteButton.isEnabled = viewModel.enableDeleteButton()
+        if viewModel.allItemsSelected() {
+            setToolbarItems([.flexibleSpace(), deselectAllButton, .flexibleSpace(), deleteButton, .flexibleSpace()], animated: true)
+        } else {
+            setToolbarItems([.flexibleSpace(), selectAllButton, .flexibleSpace(), deleteButton, .flexibleSpace()], animated: true)
+        }
+        
+        navigationController?.setToolbarHidden(!viewModel.isInSelectionMode, animated: true)
     }
+    
+    // MARK: Setup Collection View
     
     func setUpCollectionView() {
         layout.minimumInteritemSpacing = 8
@@ -131,14 +162,15 @@ private extension MainViewController {
         collectionView.backgroundView = noImagesView
         collectionView.backgroundView?.isHidden = false
         collectionView.alwaysBounceVertical = true
+        collectionView.allowsMultipleSelection = true
         
         configureDataSource()
         configureSubtitle()
     }
     
     func configureDataSource() {
-        let register = UICollectionView.CellRegistration<ImageTextCell, MainViewModel.ImageInfo> { cell, _, item in
-            cell.configure(image: item.image, text: item.author, isLoading: item.isLoading)
+        let register = UICollectionView.CellRegistration<ImageTextCell, MainViewModel.ImageInfo> { [weak self] cell, _, item in
+            cell.configure(image: item.image, text: item.author, isLoading: item.isLoading, isSelectionMode: self?.viewModel.isInSelectionMode ?? false)
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, MainViewModel.ImageInfo>(collectionView: collectionView) { collectionView, indexPath, item in
@@ -195,6 +227,7 @@ private extension MainViewController {
         return emptyView
     }
     
+    // MARK: Setup View Model
     func setUpViewModel() {
         viewModel.loadImages()
         viewModel.onChange = { [weak self] state in
@@ -209,20 +242,11 @@ private extension MainViewController {
                                                 preferredStyle: .alert)
                 alertVC.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
                 self?.present(alertVC, animated: true)
-                
-                
-//                let modal = ModalViewController(content: ModalContent(modalTitle: , subtitle1: message))
-//                if let sheet = modal.sheetPresentationController {
-//                    sheet.detents = [.medium(), .large()]
-//                    sheet.prefersGrabberVisible = true
-//                    sheet.prefersEdgeAttachedInCompactHeight = true
-//                    sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
-//                }
-//                self?.present(modal, animated: true)
             }
         }
     }
     
+    // MARK: Actions
     func apply(items: [MainViewModel.ImageInfo], animated: Bool = true) {
         var snapshot = NSDiffableDataSourceSnapshot<Section, MainViewModel.ImageInfo>()
         snapshot.appendSections([.main])
@@ -236,8 +260,60 @@ private extension MainViewController {
         }
         collectionView.backgroundView?.isHidden = !items.isEmpty
     }
+
+    
+    @objc private func addNewImage() {
+        viewModel.addNewImageWithSpinner()
+    }
+    
+    @MainActor
+    @objc private func enterSelectionMode() {
+        navigationItem.rightBarButtonItems = [addPhotoButton, cancelButton]
+        viewModel.isInSelectionMode = true
+        setUpBottomBar()
+    }
+    
+    @MainActor
+    @objc private func cancelSelectionMode() {
+        navigationItem.rightBarButtonItems = [addPhotoButton, selectButton]
+        viewModel.isInSelectionMode = false
+        viewModel.cancelSelection()
+        deselectAllPhotos()
+        setUpBottomBar()
+    }
+
+    @objc @MainActor
+    private func deselectAllPhotos() {
+        for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+            collectionView.deselectItem(at: indexPath, animated: false)
+        }
+        viewModel.cancelSelection()
+        setUpBottomBar()
+    }
+    
+    @objc func deleteSelectedPhotos() {
+        let alertVC = UIAlertController(title: String(localized: "Delete Selected Photos"),
+                                        message: String(localized: "Are you sure you want to delete \(viewModel.getNumberOfSelectedImages()) photos? This operation can't be undone"),
+                                        preferredStyle: .alert)
+        alertVC.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
+        alertVC.addAction(UIAlertAction(title: String(localized: "Delete"), style: .destructive) { [weak self] (action) in
+            self?.viewModel.deleteSelectedItems()
+        })
+        present(alertVC, animated: true)
+    }
+
+    @MainActor
+    @objc func selectAllPhotos() {
+        for i in 0..<viewModel.getNumberOfImages() {
+            collectionView.selectItem(at: IndexPath(item: i, section: 0), animated: true, scrollPosition: [])
+        }
+
+        viewModel.selectAllItems()
+        setUpBottomBar()
+    }
 }
 
+// MARK: UICollectionViewDelegate
 extension MainViewController: UICollectionViewDelegate {
     
     @MainActor
@@ -253,7 +329,17 @@ extension MainViewController: UICollectionViewDelegate {
             let delete = UIAction(title: String(localized: "Delete"),
                                   image: UIImage(systemName: "trash"),
                                   attributes: .destructive) { _ in
-                self?.viewModel.delete(uuid: item.uuid)
+                
+                let alertVC = UIAlertController(title: String(localized: "Delete Selected Photos"),
+                                                message: String(localized: "Are you sure you want to delete \(self?.viewModel.getNumberOfSelectedImages() ?? 0) photo? This operation can't be undone"),
+                                                preferredStyle: .alert)
+                alertVC.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
+                alertVC.addAction(UIAlertAction(title: String(localized: "Delete"), style: .destructive) { [weak self] (action) in
+                    self?.viewModel.delete(uuid: item.uuid)
+                })
+                self?.present(alertVC, animated: true)
+                
+                
             }
             return UIMenu(children: [delete])
         }
@@ -264,18 +350,37 @@ extension MainViewController: UICollectionViewDelegate {
         guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else {
             return
         }
-        let modal = ModalViewController(content: ModalContent(image: selectedItem.image, subtitle1: selectedItem.author, subtitle2: String(localized: "Downloaded at: \(selectedItem.dateString())")))
-        if let sheet = modal.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.prefersGrabberVisible = true
-            sheet.prefersEdgeAttachedInCompactHeight = true
-            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+        
+        if viewModel.isInSelectionMode {
+            viewModel.updateSelectionStatus(for: selectedItem.uuid)
+            setUpBottomBar()
+        } else {
+            let modal = ModalViewController(content: ModalContent(image: selectedItem.image, subtitle1: selectedItem.author, subtitle2: String(localized: "Downloaded at: \(selectedItem.dateString())")))
+            if let sheet = modal.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+                sheet.prefersEdgeAttachedInCompactHeight = true
+                sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+            }
+            present(modal, animated: true)
+            collectionView.deselectItem(at: indexPath, animated: true)
         }
-        present(modal, animated: true)
-        collectionView.deselectItem(at: indexPath, animated: true)
+    }
+    
+    @MainActor
+    func collectionView(_ cv: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+        guard viewModel.isInSelectionMode,
+              let selectedItem = dataSource.itemIdentifier(for: indexPath)
+        else {
+            return
+        }
+
+        viewModel.updateSelectionStatus(for: selectedItem.uuid)
+        setUpBottomBar()
     }
 }
 
+// MARK: UICollectionViewDelegateFlowLayout
 extension MainViewController: UICollectionViewDelegateFlowLayout {
     @MainActor
     func collectionView(_ collectionView: UICollectionView, layout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {

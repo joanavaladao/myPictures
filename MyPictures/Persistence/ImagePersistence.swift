@@ -43,7 +43,7 @@ protocol ImagePersistenceProtocol {
               imageURL: String,
               cloudID: String?) async throws -> ImageItem
     
-    func delete(imageUUID: UUID) async throws
+    func delete(uuids: [UUID]) async throws
     
     func fetchAll() async throws -> [ImageItem]
     
@@ -119,20 +119,23 @@ class ImagePersistence: ImagePersistenceProtocol {
         }
     }
     
-    func delete(imageUUID: UUID) async throws {
+    func delete(uuids: [UUID]) async throws {
         // CoreData
         try await backgroundContext.perform {
             let request: NSFetchRequest<SavedImage> = SavedImage.fetchRequest()
-            request.predicate = NSPredicate(format: "uuid == %@", imageUUID as CVarArg)
-            if let object = try self.backgroundContext.fetch(request).first {
+            request.predicate = NSPredicate(format: "uuid IN %@", uuids)
+            let objects = try self.backgroundContext.fetch(request)
+            for object in objects {
                 self.backgroundContext.delete(object)
-                try self.backgroundContext.save()
             }
+            try self.backgroundContext.save()
         }
         
         // FileManager
-        let url = fileDirectory.appendingPathComponent(imageUUID.uuidString)
-        try fileManager.removeItem(at: url)
+        for uuid in uuids {
+            let url = fileDirectory.appendingPathComponent(uuid.uuidString)
+            try fileManager.removeItem(at: url)
+        }
     }
     
     func fetchAll() async throws -> [ImageItem] {

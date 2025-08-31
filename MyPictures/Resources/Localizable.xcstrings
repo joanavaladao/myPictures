@@ -51,6 +51,12 @@
         }
       }
     },
+    "Are you sure you want to delete %lld photo? This operation can't be undone" : {
+
+    },
+    "Are you sure you want to delete %lld photos? This operation can't be undone" : {
+
+    },
     "Author A-Z" : {
       "localizations" : {
         "pt-BR" : {
@@ -110,6 +116,12 @@
           }
         }
       }
+    },
+    "Delete Selected Photos" : {
+
+    },
+    "Deselect All" : {
+
     },
     "Downloaded at: %@" : {
       "localizations" : {
@@ -190,6 +202,12 @@
           }
         }
       }
+    },
+    "Select" : {
+
+    },
+    "Select All" : {
+
     },
     "Sort by" : {
       "localizations" : {

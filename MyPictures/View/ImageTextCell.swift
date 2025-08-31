@@ -11,7 +11,15 @@ final class ImageTextCell: UICollectionViewCell {
     
     let imageView = UIImageView()
     let label = UILabel()
+    
     private let spinner = UIActivityIndicatorView(style: .medium)
+    private let checkmarkImageView = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
+    
+    override var isSelected: Bool {
+        didSet {
+            updateCheckMark(animated: true)
+        }
+    }
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -34,9 +42,15 @@ final class ImageTextCell: UICollectionViewCell {
         spinner.translatesAutoresizingMaskIntoConstraints = false
         spinner.hidesWhenStopped = true
         
+        // checkmark
+        checkmarkImageView.translatesAutoresizingMaskIntoConstraints = false
+        checkmarkImageView.backgroundColor = .white
+        checkmarkImageView.layer.cornerRadius = 12
+        
         contentView.addSubview(imageView)
         contentView.addSubview(label)
         imageView.addSubview(spinner)
+        imageView.addSubview(checkmarkImageView)
         
         let multiplier = 0.8
         
@@ -52,7 +66,12 @@ final class ImageTextCell: UICollectionViewCell {
             label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             
             spinner.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
-            spinner.centerYAnchor.constraint(equalTo: imageView.centerYAnchor)
+            spinner.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
+            
+            checkmarkImageView.topAnchor.constraint(equalTo: imageView.topAnchor, constant: 4),
+            checkmarkImageView.trailingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: -4),
+            checkmarkImageView.widthAnchor.constraint(equalToConstant: 24),
+            checkmarkImageView.heightAnchor.constraint(equalToConstant: 24),
         ])
 
         contentView.clipsToBounds = true
@@ -63,16 +82,28 @@ final class ImageTextCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func configure(image: UIImage?, text: String?, isLoading: Bool) {
+    func configure(image: UIImage?, text: String?, isLoading: Bool, isSelectionMode: Bool) {
         label.text = text ?? ""
         imageView.image = image
         isLoading ? spinner.startAnimating() : spinner.stopAnimating()
+        checkmarkImageView.isHidden = !isSelectionMode || !isSelected
     }
-    
+
     override func prepareForReuse() {
         super.prepareForReuse()
         spinner.stopAnimating()
         imageView.image = nil
         label.text = nil
+    }
+}
+
+private extension ImageTextCell {
+    func updateCheckMark(animated: Bool) {
+        let changes = {
+            self.checkmarkImageView.isHidden = !self.isSelected
+            self.checkmarkImageView.alpha = self.isSelected ? 1 : 0
+            self.checkmarkImageView.transform = self.isSelected ? .identity : CGAffineTransform(scaleX: 0.8, y: 0.8)
+        }
+        animated ? UIView.animate(withDuration: 0.15, animations: changes) : changes()
     }
 }

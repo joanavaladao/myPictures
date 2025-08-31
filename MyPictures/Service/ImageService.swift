@@ -16,7 +16,7 @@ enum SortOption {
 protocol ImageServiceProtocol {
     func addRandomImage() async throws -> ImageItem?
     func loadAllImages() async throws -> [ImageItem]
-    func delete(uuid: UUID) async throws
+    func delete(uuids: [UUID]) async throws
     func update(imageOrdering: ImageOrdering) async throws
 }
 
@@ -72,8 +72,8 @@ final class ImageService: ImageServiceProtocol {
         try await persistence.fetchAll()
     }
     
-    func delete(uuid: UUID) async throws {
-        try await persistence.delete(imageUUID: uuid)
+    func delete(uuids: [UUID]) async throws {
+        try await persistence.delete(uuids: uuids)
     }
     
     func update(imageOrdering: ImageOrdering) async throws {

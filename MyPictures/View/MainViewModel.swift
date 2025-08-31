@@ -8,60 +8,12 @@
 import UIKit
 
 final class MainViewModel {
-    struct ImageInfo: Hashable {
-        let uuid: UUID
-        let author: String
-        let image: UIImage?
-        var order: Int
-        let downloadedAt: Date
-        let isLoading: Bool
-        
-        init(from item: ImageItem) {
-            uuid = item.uuid
-            author = item.author ?? String(localized: "Unknown Author")
-            order = item.order
-            downloadedAt = item.downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
-            isLoading = false
-            
-            var image = UIImage(systemName: "photo.on.rectangle.fill")
-
-            do {
-                if let imageData = try item.loadImageData() as Data? {
-                    image = UIImage(data: imageData)
-                }
-            } catch {
-                print("Log error: \(error)")
-            }
-            
-            self.image = image
-        }
-        
-        init(uuid: UUID, author: String = "", image: UIImage? = nil, order: Int, downloadedAt: Date? = nil, isLoading: Bool) {
-            self.uuid = uuid
-            self.author = author
-            self.image = image
-            self.order = order
-            self.downloadedAt = downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
-            self.isLoading = isLoading
-        }
-        
-        func dateString() -> String {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "MMM-dd-yyyy HH:mm"
-            return dateFormatter.string(from: downloadedAt)
-        }
-    }
-    
-    enum DataState {
-        case empty
-        case refresh([ImageInfo])
-        case failed(String)
-    }
-    
     private let service: ImageServiceProtocol
     private var items: [ImageInfo] = []
+    private var selectedItems: [UUID] = []
     private var sortSelected: SortOption = .manual
     private var isAscending: Bool = true
+    var isInSelectionMode = false
     var onChange: ((DataState) -> Void)?
     
     init(service: ImageServiceProtocol = ImageService()) {
@@ -112,13 +64,64 @@ final class MainViewModel {
         }
     }
     
+    func selectAllItems() {
+        selectedItems = items.map { $0.uuid }
+    }
+    
+    func updateSelectionStatus(for uuid: UUID) {
+        if let index = selectedItems.firstIndex(of: uuid) {
+            selectedItems.remove(at: index)
+        } else {
+            selectedItems.append(uuid)
+        }
+    }
+    
+    func cancelSelection() {
+        selectedItems.removeAll()
+    }
+    
+    func enableDeleteButton() -> Bool {
+        !selectedItems.isEmpty
+    }
+    
+    func allItemsSelected() -> Bool {
+        selectedItems.count == items.count
+    }
+    
+    func getNumberOfImages() -> Int {
+        items.count
+    }
+    
+    func getNumberOfSelectedImages() -> Int {
+        selectedItems.count
+    }
+    
     func delete(uuid: UUID) {
         guard let index = items.firstIndex(where: { $0.uuid == uuid }) else { return }
         
         Task {
             do {
-                try await self.service.delete(uuid: uuid)
+                try await self.service.delete(uuids: [uuid])
                 items.remove(at: index)
+                await emitState()
+            } catch {
+                logError(error: error)
+                await presentError(String(localized: "Error deleting the image. Please, try again"))
+            }
+        }
+    }
+    
+    func deleteSelectedItems() {
+        for item in selectedItems {
+            if let index = items.firstIndex(where: { $0.uuid == item} ) {
+                items.remove(at: index)
+            }
+        }
+        
+        Task {
+            do {
+                try await self.service.delete(uuids: selectedItems)
+                selectedItems.removeAll()
                 await emitState()
             } catch {
                 logError(error: error)
@@ -216,5 +219,58 @@ private extension MainViewModel {
     
     func logError(error: Error) {
         print("Error: \(error)")
+    }
+}
+
+// MARK: Structs and Enums
+extension MainViewModel {
+    struct ImageInfo: Hashable {
+        let uuid: UUID
+        let author: String
+        let image: UIImage?
+        var order: Int
+        let downloadedAt: Date
+        let isLoading: Bool
+        
+        init(from item: ImageItem) {
+            uuid = item.uuid
+            author = item.author ?? String(localized: "Unknown Author")
+            order = item.order
+            downloadedAt = item.downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
+            isLoading = false
+            
+            var image = UIImage(systemName: "photo.on.rectangle.fill")
+
+            do {
+                if let imageData = try item.loadImageData() as Data? {
+                    image = UIImage(data: imageData)
+                }
+            } catch {
+                print("Log error: \(error)")
+            }
+            
+            self.image = image
+        }
+        
+        init(uuid: UUID, author: String = "", image: UIImage? = nil, order: Int, downloadedAt: Date? = nil, isLoading: Bool) {
+            self.uuid = uuid
+            self.author = author
+            self.image = image
+            self.order = order
+            self.downloadedAt = downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
+            self.isLoading = isLoading
+        }
+        
+        func dateString() -> String {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MMM-dd-yyyy HH:mm"
+            return dateFormatter.string(from: downloadedAt)
+        }
+    }
+    
+    enum DataState {
+        case empty
+        case refresh([ImageInfo])
+        case failed(String)
     }
 }
