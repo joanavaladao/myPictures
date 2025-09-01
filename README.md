@@ -21,11 +21,6 @@ An iOS app that fetches random images from the Picsum
 * Network mocking with URLProtocol.
 * Core Data in-memory store for persistence tests.
 
-## Requirements
-* iOS 15.0+
-* Swift 5.9+
-* Xcode 16+
-
 ## How to Run
 * Clone the repository.
 * Open MyPictures.xcodeproj in Xcode.
