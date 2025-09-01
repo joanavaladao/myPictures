@@ -52,10 +52,44 @@
       }
     },
     "Are you sure you want to delete %lld photo? This operation can't be undone" : {
-
-    },
-    "Are you sure you want to delete %lld photos? This operation can't be undone" : {
-
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Are you sure you want to delete %lld photo? This operation can't be undone"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Are you sure you want to delete %lld photos? This operation can't be undone"
+                }
+              }
+            }
+          }
+        },
+        "pt-BR" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Você gostaria de apagar essa foto? Essa operação não pode ser desfeita"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Você gostaria de apagar %lld fotos? Essa operação não pode ser desfeita"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "Author A-Z" : {
       "localizations" : {
@@ -118,10 +152,24 @@
       }
     },
     "Delete Selected Photos" : {
-
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apagar Fotos Selecionadas"
+          }
+        }
+      }
     },
     "Deselect All" : {
-
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desmarcar Todas"
+          }
+        }
+      }
     },
     "Downloaded at: %@" : {
       "localizations" : {
@@ -204,10 +252,24 @@
       }
     },
     "Select" : {
-
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecionar"
+          }
+        }
+      }
     },
     "Select All" : {
-
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecionar Todas"
+          }
+        }
+      }
     },
     "Sort by" : {
       "localizations" : {

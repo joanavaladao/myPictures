@@ -25,6 +25,21 @@ struct ImageItem {
         downloadedAt = savedImage.downloadedAt
     }
     
+    init(uuid: UUID,
+         filePath: String,
+         author: String? = nil,
+         order: Int = 0,
+         downloadDuration: TimeInterval? = nil,
+         downloadedAt: Date? = nil)
+    {
+        self.uuid = uuid
+        self.filePath = filePath
+        self.author = author
+        self.order = order
+        self.downloadDuration = downloadDuration
+        self.downloadedAt = downloadedAt
+    }
+    
     func loadImageData(fileManager: FileManager = .default) throws -> Data? {
         let url = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filePath)
         return try Data(contentsOf: url)
@@ -57,27 +72,32 @@ class ImagePersistence: ImagePersistenceProtocol {
     private let imagesDirectory = "images"
     private let fileManager: FileManager
 
-    init(model: String = "MyPictures",
+    convenience init(model: String = "MyPictures",
          fileManager: FileManager = FileManager.default) {
         
         // CoreData
-        container = NSPersistentContainer(name: model)
+        let container = NSPersistentContainer(name: model)
         container.loadPersistentStores(completionHandler: { _, error in
             if let error = error as NSError? {
-                // TODO: handle error
                 fatalError("Unresolved error \(error), \(error.userInfo)")
             }
         })
-        
         container.viewContext.automaticallyMergesChangesFromParent = true
         
+        // FileManager
+        let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.init(container: container, fileManager: fileManager, baseURL: baseDir)
+    }
+    
+    init(container: NSPersistentContainer,
+         fileManager: FileManager = FileManager.default,
+         baseURL: URL) {
+        self.container = container
         backgroundContext = container.newBackgroundContext()
         backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         
-        // FileManager
         self.fileManager = fileManager
-        let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        fileDirectory = baseDir.appendingPathComponent(imagesDirectory, isDirectory: true)
+        fileDirectory = baseURL.appendingPathComponent(imagesDirectory, isDirectory: true)
         try? fileManager.createDirectory(at: fileDirectory, withIntermediateDirectories: true)
     }
     
@@ -108,7 +128,6 @@ class ImagePersistence: ImagePersistenceProtocol {
             newImage.downloadURL = downloadURL
             newImage.imageURL = imageURL
             newImage.downloadedAt = downloadedAt
-            newImage.downloadDuration = downloadDuration
             newImage.downloadDuration = downloadDuration
             newImage.localFilePath = "\(self.imagesDirectory)/\(imageUUID.uuidString)"
             newImage.order = Int32(order+1)
@@ -142,7 +161,7 @@ class ImagePersistence: ImagePersistenceProtocol {
         try await container.viewContext.perform {
             let request: NSFetchRequest<SavedImage> = SavedImage.fetchRequest()
             request.sortDescriptors = [NSSortDescriptor(key: "order", ascending: true)]
-            let objects = try self.backgroundContext.fetch(request)
+            let objects = try self.container.viewContext.fetch(request)
             return objects.map { .init(from: $0) }
         }
     }

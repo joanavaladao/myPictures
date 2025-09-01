@@ -34,10 +34,10 @@ final class ModalViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        buidlModal()
+        buildModal()
     }
     
-    func buidlModal() {
+    func buildModal() {
         view.backgroundColor = .systemBackground
         
         // Title

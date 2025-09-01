@@ -20,11 +20,12 @@ final class MainViewModel {
         self.service = service
     }
     
-    func loadImages() {
+    // MARK: Image Manipulation
+    func loadItems() {
         Task {
             do {
-                let savedImages = try await self.service.loadAllImages()
-                items = savedImages.map { .init(from: $0) }
+                let savedItems = try await self.service.loadAllImages()
+                items = savedItems.map { .init(from: $0) }
                 await emitState()
             } catch {
                 logError(error: error)
@@ -33,7 +34,7 @@ final class MainViewModel {
         }
     }
 
-    func addNewImageWithSpinner() {
+    func addNewItemWithSpinner() {
         
         let placeholderID = UUID()
         let placeholder = ImageInfo(uuid: placeholderID, order: items.count, isLoading: true)
@@ -64,6 +65,44 @@ final class MainViewModel {
         }
     }
     
+    func deleteSelectedItems() {
+        let uuids = selectedItems
+        guard uuids.count > 0 else {
+            return
+        }
+
+        Task {
+            do {
+                try await self.service.delete(uuids: selectedItems)
+                
+                items.removeAll { uuids.contains($0.uuid) }
+                selectedItems.removeAll()
+                
+                await emitState()
+            } catch {
+                logError(error: error)
+                await presentError(String(localized: "Error deleting the image. Please, try again"))
+            }
+        }
+    }
+    
+    func delete(uuid: UUID) {
+        guard let index = items.firstIndex(where: { $0.uuid == uuid }) else { return }
+        
+        Task {
+            do {
+                try await self.service.delete(uuids: [uuid])
+                items.remove(at: index)
+                await emitState()
+            } catch {
+                logError(error: error)
+                await presentError(String(localized: "Error deleting the image. Please, try again"))
+            }
+        }
+    }
+    
+    // MARK: Screen Control
+
     func selectAllItems() {
         selectedItems = items.map { $0.uuid }
     }
@@ -88,46 +127,12 @@ final class MainViewModel {
         selectedItems.count == items.count
     }
     
-    func getNumberOfImages() -> Int {
+    func getNumberOfItems() -> Int {
         items.count
     }
     
-    func getNumberOfSelectedImages() -> Int {
+    func getNumberOfSelectedItems() -> Int {
         selectedItems.count
-    }
-    
-    func delete(uuid: UUID) {
-        guard let index = items.firstIndex(where: { $0.uuid == uuid }) else { return }
-        
-        Task {
-            do {
-                try await self.service.delete(uuids: [uuid])
-                items.remove(at: index)
-                await emitState()
-            } catch {
-                logError(error: error)
-                await presentError(String(localized: "Error deleting the image. Please, try again"))
-            }
-        }
-    }
-    
-    func deleteSelectedItems() {
-        for item in selectedItems {
-            if let index = items.firstIndex(where: { $0.uuid == item} ) {
-                items.remove(at: index)
-            }
-        }
-        
-        Task {
-            do {
-                try await self.service.delete(uuids: selectedItems)
-                selectedItems.removeAll()
-                await emitState()
-            } catch {
-                logError(error: error)
-                await presentError(String(localized: "Error deleting the image. Please, try again"))
-            }
-        }
     }
     
     func checkIfSelected(sortOption: SortOption, isAscending: Bool) -> Bool {
@@ -138,16 +143,17 @@ final class MainViewModel {
     func setSortOption(_ sortOption: SortOption, isAscending: Bool) {
         sortSelected = sortOption
         self.isAscending = isAscending
-        sortImages()
+        sortItems()
     }
     
-    func getImageCount() -> Int {
+    func getItemsCount() -> Int {
         items.count
     }
 }
     
+// MARK: Helper Functions
 private extension MainViewModel {
-    func sortImages() {
+    func sortItems() {
         switch sortSelected {
         case .author:
             items.sort {
@@ -183,15 +189,15 @@ private extension MainViewModel {
             return
         }
         
-        var imageOrdering: ImageOrdering = [:]
+        var itemsToBeUpdated: ImageOrdering = [:]
         for i in 0..<items.count {
             if items[i].order != i {
-                imageOrdering[items[i].uuid] = Int32(i)
+                itemsToBeUpdated[items[i].uuid] = Int32(i)
                 items[i].order = i
             }
         }
         
-        guard !imageOrdering.isEmpty else {
+        guard !itemsToBeUpdated.isEmpty else {
             // if there's no change, don't do anything
             return
         }
@@ -199,11 +205,10 @@ private extension MainViewModel {
         Task {
             await emitState()
             do {
-                try await service.update(imageOrdering: imageOrdering)
+                try await service.update(imageOrdering: itemsToBeUpdated)
             } catch {
                 logError(error: error)
             }
-            
         }
     }
     

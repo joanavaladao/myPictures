@@ -17,7 +17,7 @@ class MainViewController: UIViewController {
     // MARK: UI components
     private let layout = UICollectionViewFlowLayout()
     private lazy var collectionView: UICollectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-    private var dataSource: UICollectionViewDiffableDataSource<Section, MainViewModel.ImageInfo>! // TODO: change this
+    private var dataSource: UICollectionViewDiffableDataSource<Section, MainViewModel.ImageInfo>!
     private lazy var noImagesView: UIView = makeEmptyView()
     private var viewModel: MainViewModel
     
@@ -192,7 +192,7 @@ private extension MainViewController {
             let headerView = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: CollectionHeaderView.reuseIdentifier, for: indexPath) as! CollectionHeaderView
             headerView.contentMode = .scaleToFill
             headerView.backgroundColor = .systemBackground
-            headerView.setLabel(value: String(localized: "\(viewModel.getImageCount()) photos"))
+            headerView.setLabel(value: String(localized: "\(viewModel.getItemsCount()) photos"))
             
             return headerView
         }
@@ -229,7 +229,7 @@ private extension MainViewController {
     
     // MARK: Setup View Model
     func setUpViewModel() {
-        viewModel.loadImages()
+        viewModel.loadItems()
         viewModel.onChange = { [weak self] state in
             switch state {
             case .refresh(let snapshot):
@@ -253,7 +253,7 @@ private extension MainViewController {
         snapshot.appendItems(items)
 
         dataSource.apply(snapshot, animatingDifferences: animated) { [ weak self] in
-            if let photosCount = self?.viewModel.getImageCount(),
+            if let photosCount = self?.viewModel.getItemsCount(),
                let header = self?.collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: 0)) as? CollectionHeaderView {
                 header.setLabel(value: String(localized: "\(photosCount) photos"))
             }
@@ -263,7 +263,7 @@ private extension MainViewController {
 
     
     @objc private func addNewImage() {
-        viewModel.addNewImageWithSpinner()
+        viewModel.addNewItemWithSpinner()
     }
     
     @MainActor
@@ -293,7 +293,7 @@ private extension MainViewController {
     
     @objc func deleteSelectedPhotos() {
         let alertVC = UIAlertController(title: String(localized: "Delete Selected Photos"),
-                                        message: String(localized: "Are you sure you want to delete \(viewModel.getNumberOfSelectedImages()) photos? This operation can't be undone"),
+                                        message: String(localized: "Are you sure you want to delete \(viewModel.getNumberOfSelectedItems()) photo? This operation can't be undone"),
                                         preferredStyle: .alert)
         alertVC.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
         alertVC.addAction(UIAlertAction(title: String(localized: "Delete"), style: .destructive) { [weak self] (action) in
@@ -304,7 +304,7 @@ private extension MainViewController {
 
     @MainActor
     @objc func selectAllPhotos() {
-        for i in 0..<viewModel.getNumberOfImages() {
+        for i in 0..<viewModel.getNumberOfItems() {
             collectionView.selectItem(at: IndexPath(item: i, section: 0), animated: true, scrollPosition: [])
         }
 
@@ -331,7 +331,7 @@ extension MainViewController: UICollectionViewDelegate {
                                   attributes: .destructive) { _ in
                 
                 let alertVC = UIAlertController(title: String(localized: "Delete Selected Photos"),
-                                                message: String(localized: "Are you sure you want to delete \(self?.viewModel.getNumberOfSelectedImages() ?? 0) photo? This operation can't be undone"),
+                                                message: String(localized: "Are you sure you want to delete \(self?.viewModel.getNumberOfSelectedItems() ?? 0) photo? This operation can't be undone"),
                                                 preferredStyle: .alert)
                 alertVC.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
                 alertVC.addAction(UIAlertAction(title: String(localized: "Delete"), style: .destructive) { [weak self] (action) in

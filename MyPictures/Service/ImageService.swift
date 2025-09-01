@@ -53,15 +53,15 @@ final class ImageService: ImageServiceProtocol {
         try Task.checkCancellation()
         guard !list.isEmpty,
               let randomElement = list.randomElement(),
-              let imageData = try await imageDownloader.download(from: randomElement.download_url, urlSession: urlSession)
+              let imageDownloaded = try await imageDownloader.download(from: randomElement.download_url, urlSession: urlSession)
         else {
             return nil
         }
 
-        let image = try await persistence.save(imageData.data,
+        let image = try await persistence.save(imageDownloaded.data,
                                                author: randomElement.author,
-                                               downloadDuration: imageData.duration,
-                                               downloadedAt: imageData.downloadedAt,
+                                               downloadDuration: imageDownloaded.duration,
+                                               downloadedAt: imageDownloaded.downloadedAt,
                                                downloadURL: randomElement.download_url,
                                                imageURL: randomElement.url,
                                                cloudID: randomElement.id)
