@@ -53,11 +53,6 @@
 			path = MyPicturesTests;
 			sourceTree = "<group>";
 		};
-		5B2CA4692E5F94A100E39E81 /* MyPicturesUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MyPicturesUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,7 +85,6 @@
 			children = (
 				5B2CA4452E5F94A000E39E81 /* MyPictures */,
 				5B2CA45F2E5F94A100E39E81 /* MyPicturesTests */,
-				5B2CA4692E5F94A100E39E81 /* MyPicturesUITests */,
 				5B2CA4442E5F94A000E39E81 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -165,9 +159,6 @@
 			);
 			dependencies = (
 				5B2CA4682E5F94A100E39E81 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				5B2CA4692E5F94A100E39E81 /* MyPicturesUITests */,
 			);
 			name = MyPicturesUITests;
 			packageProductDependencies = (

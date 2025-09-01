@@ -111,6 +111,16 @@
         }
       }
     },
+    "Authors" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autores"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "localizations" : {
         "pt-BR" : {
@@ -221,16 +231,6 @@
         }
       }
     },
-    "Manual" : {
-      "localizations" : {
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Manual"
-          }
-        }
-      }
-    },
     "My Photos" : {
       "localizations" : {
         "pt-BR" : {
@@ -241,12 +241,42 @@
         }
       }
     },
+    "No authors" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem autores"
+          }
+        }
+      }
+    },
     "No images found" : {
       "localizations" : {
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Imagem não encontrada"
+          }
+        }
+      }
+    },
+    "Number of photos" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número de fotos"
+          }
+        }
+      }
+    },
+    "Photos downloaded today" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fotos baixadas hoje"
           }
         }
       }
@@ -277,6 +307,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ordenar por"
+          }
+        }
+      }
+    },
+    "Summary" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumo"
+          }
+        }
+      }
+    },
+    "Unique authors" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autores distintos"
           }
         }
       }

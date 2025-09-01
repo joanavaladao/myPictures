@@ -227,55 +227,29 @@ private extension MainViewModel {
     }
 }
 
-// MARK: Structs and Enums
+// MARK: Reports
 extension MainViewModel {
-    struct ImageInfo: Hashable {
-        let uuid: UUID
-        let author: String
-        let image: UIImage?
-        var order: Int
-        let downloadedAt: Date
-        let isLoading: Bool
+    func reportMetrics(calendar: Calendar = .current) -> [ReportSection: [ReportRow]] {
+        let reportItems = items.filter { !$0.isLoading }
+        let total = reportItems.count
+        let imagesToday = reportItems.filter { calendar.isDateInToday($0.downloadedAt) }.count
+        let imagesByAuthorsDict = Dictionary(grouping: reportItems, by: \.author).mapValues(\.count)
+        let imagesByAuthors = imagesByAuthorsDict
+            .sorted { (a, b) in a.value == b.value ? a.key < b.key : a.value > b.value }
+            .map { ($0.key, $0.value) }
+        let uniqueAuthors = imagesByAuthors.count
         
-        init(from item: ImageItem) {
-            uuid = item.uuid
-            author = item.author ?? String(localized: "Unknown Author")
-            order = item.order
-            downloadedAt = item.downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
-            isLoading = false
-            
-            var image = UIImage(systemName: "photo.on.rectangle.fill")
-
-            do {
-                if let imageData = try item.loadImageData() as Data? {
-                    image = UIImage(data: imageData)
-                }
-            } catch {
-                print("Log error: \(error)")
-            }
-            
-            self.image = image
+        var reportInformation: [ReportSection: [ReportRow]] = [:]
+        reportInformation[.summary] = [.init(title: String(localized: "Number of photos"), detail: String(total)),
+                                       .init(title: String(localized: "Photos downloaded today"), detail: String(imagesToday)),
+                                       .init(title: String(localized: "Unique authors"), detail: String(uniqueAuthors))]
+        
+        if imagesByAuthors.isEmpty {
+            reportInformation[.authors] = [.init(title: String(localized: "No authors"), detail: "")]
+        } else {
+            reportInformation[.authors] = imagesByAuthors.map { .init(title: $0.0, detail: String($0.1)) }
         }
         
-        init(uuid: UUID, author: String = "", image: UIImage? = nil, order: Int, downloadedAt: Date? = nil, isLoading: Bool) {
-            self.uuid = uuid
-            self.author = author
-            self.image = image
-            self.order = order
-            self.downloadedAt = downloadedAt ?? Date(timeIntervalSinceReferenceDate: -123456789.0)
-            self.isLoading = isLoading
-        }
-        
-        func dateString() -> String {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "MMM-dd-yyyy HH:mm"
-            return dateFormatter.string(from: downloadedAt)
-        }
-    }
-    
-    enum DataState {
-        case empty
-        case refresh([ImageInfo])
-        case failed(String)
+        return reportInformation
     }
 }
